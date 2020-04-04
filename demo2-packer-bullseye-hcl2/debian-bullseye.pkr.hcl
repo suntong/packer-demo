@@ -1,59 +1,47 @@
+# See
+# https://packer.io/guides/hcl/from-json-v1/
+# https://packer.io/docs/configuration/from-1.5/syntax.html
+#
+# https://github.com/nezumisannn/packer-hcl2-sample
 
-variables = {
-  debian_version = "11"
-  iso_checksum = ""
-  soft_version = "01"
-  ansible_environment = "dev"
+variables "soft_version" = {
+  type    = string
+  default = "01"
 }
 
-builders = [{
-  type = "virtualbox-iso"
-},
-{
-  type = "docker"
-  image = "debian:bullseye"
-  export_path = "debian.tar"
-}]
+# the source block is what was defined in the builders section and represents a
+# reusable way to start a machine. You build your images from that source. All
+# sources have a 1:1 correspondance to what currently is a builder. The
+# argument name (ie: ami_name) must be unquoted and can be set using the equal
+# sign operator (=).
 
-post-processors = {
-  only = ["docker"]
-  type = "docker-import"
-  repository = "sfxpt"
-  tag = "bullseye-{{user `debian_version`}}_{{user `soft_version`}}"
+source "docker" "base" {
+      image= "debian:bullseye"
+      export_path= "export_image.tar"
 }
 
-provisioners = {
-  only = ["virtualbox-iso"]
-  type = "shell"
-  execute_command = "echo 'vagrant' | {{.Vars}} sudo -E -S bash '{{.Path}}'"
-  scripts = [
-    "scripts/update.sh",
-    "scripts/sshd.sh",
-    "scripts/networking.sh",
-    "scripts/sudoers.sh",
-    "scripts/vagrant.sh",
-    "scripts/vbaddguest.sh",
-    "scripts/ansible.sh"]
+# A build starts sources and runs provisioning steps on those sources.
+build {
+  sources = [
+    # there can be multiple sources per build
+    "source.docker.base"
+  ]
+
+  # All provisioners and post-processors have a 1:1 correspondence to their
+  # current layout. The argument name (ie: inline) must to be unquoted
+  # and can be set using the equal sign operator (=).
+  provisioner "shell" {
+    inline = [
+    "sleep 2"
+    "hostname && cat /etc/os-release"
+    ]
+  }
+
+  # post-processors work too, example: `post-processor "shell-local" {}`.
+  post-processors  "docker-import" {
+    only = ["docker"]
+    repository = "sfxpt"
+    tag = "bullseye-_{{user `soft_version`}}"
+  }
 }
 
-provisioners = {
-  only = ["docker"]
-  type = "shell"
-  scripts = [
-    "scripts/update.sh",
-    "scripts/sshd.sh",
-    "scripts/sudoers.sh"]
-}
-
-provisioners = {
-  only = ["virtualbox-iso"]
-  type = "shell"
-  execute_command = "echo 'vagrant' | {{.Vars}} sudo -E -S bash '{{.Path}}'"
-  scripts = ["scripts/cleanup.sh"]
-}
-
-provisioners = {
-  only = ["docker"]
-  scripts = ["scripts/cleanup.sh"]
-  type = "shell"
-}
