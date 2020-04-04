@@ -1,0 +1,122 @@
+{
+    "variables": {
+        "debian_version": "7.7.0",
+        "iso_checksum": "5cb6e4fea55fbb5173f90c3a545b843c6c193e29c3aa32b3306c9bbdfb1ad6a6a36ae8be50e91af9d03d5f21c472bd05d04d3508172e0b519e76714333c7c74b",
+        "ansible_inventory_file": "ansible_inventory_file",
+        "ansible_environment": "dev",
+        "soft_version": "noversion"
+    },
+  "builders": [
+    {
+      "type": "virtualbox-iso",
+      "boot_command": [
+        "&lt;esc&gt;&lt;wait&gt;",
+        "install &lt;wait&gt;",
+        "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg &lt;wait&gt;",
+        "debian-installer=en_US &lt;wait&gt;",
+        "auto &lt;wait&gt;",
+        "locale=en_US &lt;wait&gt;",
+        "kbd-chooser/method=us &lt;wait&gt;",
+        "keyboard-configuration/xkb-keymap=us &lt;wait&gt;",
+        "netcfg/get_hostname={{ .Name }} &lt;wait&gt;",
+        "netcfg/get_domain=vagrantup.com &lt;wait&gt;",
+        "fb=false &lt;wait&gt;",
+        "debconf/frontend=noninteractive &lt;wait&gt;",
+        "console-setup/ask_detect=false &lt;wait&gt;",
+        "console-keymaps-at/keymap=us &lt;wait&gt;",
+        "&lt;enter&gt;&lt;wait&gt;"
+      ],
+      "boot_wait": "10s",
+      "disk_size": 32768,
+      "guest_os_type": "Debian_64",
+      "headless": true,
+      "http_directory": "http",
+      "iso_checksum": "{{user `iso_checksum`}}",
+      "iso_checksum_type": "sha512",
+      "iso_url": "http://cdimage.debian.org/cdimage/release/{{user `debian_version`}}/amd64/iso-cd/debian-{{user `debian_version`}}-amd64-netinst.iso",
+      "ssh_username": "vagrant",
+      "ssh_password": "vagrant",
+      "ssh_port": 22,
+      "ssh_wait_timeout": "10000s",
+      "shutdown_command": "echo 'vagrant'|sudo -S /sbin/shutdown -hP now",
+      "guest_additions_path": "VBoxGuestAdditions_{{.Version}}.iso",
+      "virtualbox_version_file": ".vbox_version",
+      "vm_name": "debian-{{user `debian_version`}}-amd64",
+      "vboxmanage": [
+        [ "modifyvm", "{{.Name}}", "--memory", "512" ],
+        [ "modifyvm", "{{.Name}}", "--cpus", "1" ]
+      ]
+    },
+    {
+      "type": "docker",
+      "image": "debian:wheezy",
+      "export_path": "debian.tar"
+    }
+  ],
+  "post-processors": [
+    {
+      "type": "vagrant",
+      "compression_level": "9",
+      "output": "wheezy_{{user `debian_version`}}-{{user `soft_version`}}.box",
+      "only": ["virtualbox-iso"]
+    },
+    {
+      "type": "docker-import",
+      "repository": "smash",
+      "tag": "wheezy_{{user `debian_version`}}-{{user `soft_version`}}",
+      "only": ["docker"]
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "execute_command": "echo 'vagrant' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+      "scripts": [
+        "scripts/update.sh",
+        "scripts/sshd.sh",
+        "scripts/networking.sh",
+        "scripts/ansible_prequesites.sh",
+        "scripts/sudoers.sh",
+        "scripts/vagrant.sh",
+        "scripts/vbaddguest.sh",
+        "scripts/ansible_bin.sh"
+      ],
+      "only": ["virtualbox-iso"]
+    },
+    {
+      "type": "shell",
+      "scripts": [
+        "scripts/update.sh",
+        "scripts/sshd.sh",
+        "scripts/networking.sh",
+        "scripts/ansible_prequesites.sh",
+        "scripts/sudoers.sh",
+        "scripts/vagrant.sh",
+        "scripts/ansible_bin.sh"
+      ],
+      "only": ["docker"]
+    },
+    {
+        "type": "ansible-local",
+        "playbook_dir": "..",
+        "playbook_file": "../site.yml",
+        "inventory_file": "{{user `ansible_inventory_file`}}",
+        "extra_arguments": ["-e", "set_env={{user `ansible_environment`}}", "-v"]
+    },
+    {
+      "type": "shell",
+      "execute_command": "echo 'vagrant' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+      "scripts": [
+        "scripts/cleanup.sh"
+      ],
+      "only": ["virtualbox-iso"]
+    },
+    {
+      "type": "shell",
+      "scripts": [
+        "scripts/cleanup.sh"
+      ],
+      "only": ["docker"]
+    }
+  ]
+}
