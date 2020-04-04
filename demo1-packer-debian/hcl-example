@@ -1,0 +1,8 @@
+# the source block is what was defined in the builders section and represents a
+# reusable way to start a machine. You build your images from that source.source
+
+"amazon-ebs" "example" {
+    ami_name = "packer-test"
+    region = "us-east-1"
+    instance_type = "t2.micro"
+}
