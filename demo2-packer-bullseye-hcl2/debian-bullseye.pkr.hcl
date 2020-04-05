@@ -4,7 +4,7 @@
 #
 # https://github.com/nezumisannn/packer-hcl2-sample
 
-variables "soft_version" = {
+variable "soft_version" {
   type    = string
   default = "01"
 }
@@ -32,16 +32,17 @@ build {
   # and can be set using the equal sign operator (=).
   provisioner "shell" {
     inline = [
-    "sleep 2"
+    "sleep 2",
     "hostname && cat /etc/os-release"
     ]
   }
 
   # post-processors work too, example: `post-processor "shell-local" {}`.
-  post-processors  "docker-import" {
-    only = ["docker"]
+  post-processor  "docker-import" {
     repository = "sfxpt"
-    tag = "bullseye-_{{user `soft_version`}}"
+    #tag = "bullseye-_{{var.soft_version}}" # function "var" not defined
+    # tag = "bullseye-_var.soft_version" # => bullseye-_var.soft_version
+    tag = "bullseye"
   }
 }
 
