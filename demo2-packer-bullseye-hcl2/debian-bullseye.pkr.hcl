@@ -4,6 +4,11 @@
 #
 # https://github.com/nezumisannn/packer-hcl2-sample
 
+variable "host_name" {
+  type    = string
+  default = "sfxpt"
+}
+
 variable "soft_version" {
   type    = string
   default = "01"
@@ -33,16 +38,16 @@ build {
   provisioner "shell" {
     inline = [
     "sleep 2",
+    "hostname -I",
+    "echo ${var.host_name} | tee /etc/hostname",
     "hostname && cat /etc/os-release"
     ]
   }
 
   # post-processors work too, example: `post-processor "shell-local" {}`.
   post-processor  "docker-import" {
-    repository = "sfxpt"
-    #tag = "bullseye-_{{var.soft_version}}" # function "var" not defined
-    # tag = "bullseye-_var.soft_version" # => bullseye-_var.soft_version
-    tag = "bullseye"
+    repository = "${var.host_name}"
+    tag = "bullseye_${var.soft_version}"
   }
 }
 
